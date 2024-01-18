@@ -32,6 +32,7 @@ def get_programming_language(file_extension: str) -> Language:
         ".cpp": Language.CPP,
         ".c": Language.C,
         ".cs": Language.C_SHARP,
+        ".hs": Language.HASKELL,
     }
     return language_mapping.get(file_extension, Language.UNKNOWN)
 
@@ -69,6 +70,8 @@ def get_langchain_language(language: Language) -> text_splitter.Language:
         return text_splitter.Language.CPP
     elif language == Language.C_SHARP:
         return text_splitter.Language.CSHARP
+    elif language == Language.HASKELL:
+        return text_splitter.Language.HASKELL # Support for Haskell in text_splitter module - https://github.com/Nisarg1112/langchain/tree/fix/flat-layout
     else:
         return text_splitter.Language.UNKNOWN
 

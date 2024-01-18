@@ -10,3 +10,4 @@ from codeqai.treesitter.treesitter_kt import TreesitterKotlin
 from codeqai.treesitter.treesitter_py import TreesitterPython
 from codeqai.treesitter.treesitter_rs import TreesitterRust
 from codeqai.treesitter.treesitter_ts import TreesitterTypescript
+from codeqai.treesitter.treesitter_hs import TreesitterHaskell

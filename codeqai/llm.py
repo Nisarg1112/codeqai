@@ -5,7 +5,7 @@ import sys
 import inquirer
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.chat_models import ChatOpenAI
+from langchain.chat_models import ChatOpenAI, AzureChatOpenAI
 from langchain.llms import AzureOpenAI, LlamaCpp, Ollama
 
 from codeqai import utils
@@ -19,7 +19,8 @@ class LLM:
                 temperature=0.9, max_tokens=2048, model=chat_model
             )
         elif llm_host == LlmHost.AZURE_OPENAI and deployment:
-            self.chat_model = AzureOpenAI(
+            self.chat_model = AzureChatOpenAI(
+                openai_api_base=os.getenv("OPENAI_API_BASE"),
                 temperature=0.9,
                 max_tokens=2048,
                 deployment_name=deployment,

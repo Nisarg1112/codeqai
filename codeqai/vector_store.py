@@ -181,9 +181,9 @@ class VectorStore:
                             [
                                 sys.executable,
                                 "-m",
-                                "pip",
+                                "pip3",
                                 "install",
-                                answers["faiss-installation"],
+                                "faiss-cpu",
                             ],
                             check=True,
                         )
