@@ -105,7 +105,7 @@ def run():
     ):
         required_keys.extend(
             [
-                "OPENAI_API_BASE",
+                "AZURE_OPENAI_ENDPOINT",
                 "OPENAI_API_KEY",
                 "OPENAI_API_VERSION",
             ]
