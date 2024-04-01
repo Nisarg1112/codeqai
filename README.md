@@ -123,6 +123,16 @@ the configuration process is initiated, where the embeddings and llms can be cho
 > If you want to change the embeddings model in the configuration later, delete the cached files in `~/.cache/codeqai`.
 > Afterwards the vector store files are created again with the recent configured embeddings model. This is neccessary since the similarity search does not work if the models differ.
 
+## 🗃️ Indexing
+
+At first usage when you're using JusTuring, Indexing needs to be done.
+
+```
+codeqai startindexing
+```
+
+the indexing process is initiated. Without indexing the repo you won't be able to use JusTuring Search feature.
+
 ## 🌐 Remote models
 
 If remote models are used, the following environment variables are required.

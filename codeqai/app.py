@@ -182,6 +182,15 @@ def run():
             spinner.stop()
 
         if args.action == "extension":
+            if not os.path.exists(os.path.join(get_cache_path(), f"{repo_name}.faiss.bytes")):
+                files = repo.load_files()
+                documents = codeparser.parse_code_files(files)
+                vector_store = VectorStore(
+                    repo_name,
+                    embeddings=embeddings_model.embeddings,
+                )
+                vector_store.index_documents(documents)
+                save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
             vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
             search_pattern = input()
             similarity_result = vector_store.similarity_search(search_pattern)
