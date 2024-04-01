@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import warnings
+import json
 
 import click
 from dotenv import dotenv_values, load_dotenv
@@ -75,8 +76,14 @@ def run():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "action",
-        choices=["app", "search", "chat", "configure", "sync"],
+        choices=["app", "search", "chat", "configure", "sync", "extension", "generate"],
         help="Action to perform. 'search' will semantically search the codebase. 'chat' will chat with the codebase.",
+    )
+    parser.add_argument(
+        "--query",
+        nargs="?",
+        default=None,
+        help="query to generate code from",
     )
     args = parser.parse_args()
 
@@ -147,7 +154,45 @@ def run():
         save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
         spinner.stop()
 
-    if args.action == "app":
+    if args.action == "extension":
+        vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
+        search_pattern = input()
+        similarity_result = vector_store.similarity_search(search_pattern)
+        output = list()
+        for doc in similarity_result:
+            language = utils.get_programming_language(
+                utils.get_file_extension(doc.metadata["filename"])
+            )
+
+            start_line, indentation = utils.find_starting_line_and_indent(
+                doc.metadata["filename"], doc.page_content
+            )
+
+            syntax = Syntax(
+                indentation + doc.page_content,
+                language.value,
+                theme="monokai",
+                line_numbers=True,
+                start_line=start_line,
+                indent_guides=True,
+            )
+            # Create a JSON object for the snippet  
+            snippet = {  
+                'filename': doc.metadata["filename"],  
+                'method_name': doc.metadata["method_name"],  
+                'language': language.value,  
+                'content': indentation + doc.page_content,  
+                'start_line': start_line  
+            }  
+            # Output the JSON object  
+            print(json.dumps(snippet))  
+    
+    elif args.action == "generate":
+        vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
+        result = qa(args.query)
+        print(result["answer"])
+
+    elif args.action == "app":
         print("Starting CodeQAI streamlit app...")
         run_streamlit()
     else:
