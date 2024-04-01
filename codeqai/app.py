@@ -76,7 +76,7 @@ def run():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "action",
-        choices=["app", "search", "chat", "configure", "sync", "extension", "generate"],
+        choices=["app", "search", "chat", "configure", "sync", "extension", "generate", "startindexing"],
         help="Action to perform. 'search' will semantically search the codebase. 'chat' will chat with the codebase.",
     )
     parser.add_argument(
@@ -133,147 +133,174 @@ def run():
             else None
         ),
     )
-
-    # check if faiss.index exists
-    if not os.path.exists(os.path.join(get_cache_path(), f"{repo_name}.faiss.bytes")):
-        print(
-            f"No vector store found for {utils.get_bold_text(repo_name)}. Initial indexing may take a few minutes."
-        )
-        spinner = yaspin(text="🔧 Parsing codebase...", color="green")
-        spinner.start()
-        files = repo.load_files()
-        documents = codeparser.parse_code_files(files)
-        spinner.stop()
-        spinner = yaspin(text="💾 Indexing vector store...", color="green")
-        vector_store = VectorStore(
-            repo_name,
-            embeddings=embeddings_model.embeddings,
-        )
-        spinner.start()
-        vector_store.index_documents(documents)
-        save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
-        spinner.stop()
-
-    if args.action == "extension":
-        vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
-        search_pattern = input()
-        similarity_result = vector_store.similarity_search(search_pattern)
-        output = list()
-        for doc in similarity_result:
-            language = utils.get_programming_language(
-                utils.get_file_extension(doc.metadata["filename"])
+    if args.action == "startindexing":
+        if not os.path.exists(os.path.join(get_cache_path(), f"{repo_name}.faiss.bytes")):
+            print(
+                f"No vector store found for {utils.get_bold_text(repo_name)}. Initial indexing may take a few minutes."
             )
-
-            start_line, indentation = utils.find_starting_line_and_indent(
-                doc.metadata["filename"], doc.page_content
-            )
-
-            syntax = Syntax(
-                indentation + doc.page_content,
-                language.value,
-                theme="monokai",
-                line_numbers=True,
-                start_line=start_line,
-                indent_guides=True,
-            )
-            # Create a JSON object for the snippet  
-            snippet = {  
-                'filename': doc.metadata["filename"],  
-                'method_name': doc.metadata["method_name"],  
-                'language': language.value,  
-                'content': indentation + doc.page_content,  
-                'start_line': start_line  
-            }  
-            # Output the JSON object  
-            print(json.dumps(snippet))  
-    
-    elif args.action == "generate":
-        vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
-        result = qa(args.query)
-        print(result["answer"])
-
-    elif args.action == "app":
-        print("Starting CodeQAI streamlit app...")
-        run_streamlit()
-    else:
-        spinner = yaspin(text="💾 Loading vector store...", color="green")
-        spinner.start()
-        vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
-        spinner.stop()
-
-        if args.action == "sync":
-            spinner = yaspin(text="💾 Syncing vector store...", color="green")
+            spinner = yaspin(text="🔧 Parsing codebase...", color="green")
             spinner.start()
             files = repo.load_files()
-            vector_store.sync_documents(files)
+            documents = codeparser.parse_code_files(files)
+            spinner.stop()
+            spinner = yaspin(text="💾 Indexing vector store...", color="green")
+            vector_store = VectorStore(
+                repo_name,
+                embeddings=embeddings_model.embeddings,
+            )
+            spinner.start()
+            vector_store.index_documents(documents)
             save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
             spinner.stop()
-            print("✅ Vector store synced with current git checkout.")
+            print(
+                f"Vector store process completed for {utils.get_bold_text(repo_name)}. You can use Chat or Search feature now!"
+            )
+        else:
+            print(
+                f"Vector store already found for {utils.get_bold_text(repo_name)}. You can use Chat or Search feature now!"
+            )
+        return
+    else:
+        # check if faiss.index exists
+        if not os.path.exists(os.path.join(get_cache_path(), f"{repo_name}.faiss.bytes")):
+            print(
+                f"No vector store found for {utils.get_bold_text(repo_name)}. Initial indexing may take a few minutes."
+            )
+            spinner = yaspin(text="🔧 Parsing codebase...", color="green")
+            spinner.start()
+            files = repo.load_files()
+            documents = codeparser.parse_code_files(files)
+            spinner.stop()
+            spinner = yaspin(text="💾 Indexing vector store...", color="green")
+            vector_store = VectorStore(
+                repo_name,
+                embeddings=embeddings_model.embeddings,
+            )
+            spinner.start()
+            vector_store.index_documents(documents)
+            save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
+            spinner.stop()
 
-        console = Console()
-        while True:
-            choice = None
-            if args.action == "sync":
-                break
-            if args.action == "search":
-                search_pattern = input("🔎 Enter a search pattern: ")
-                spinner = yaspin(text="🤖 Processing...", color="green")
-                spinner.start()
-                similarity_result = vector_store.similarity_search(search_pattern)
-                spinner.stop()
-                for doc in similarity_result:
-                    language = utils.get_programming_language(
-                        utils.get_file_extension(doc.metadata["filename"])
-                    )
-
-                    start_line, indentation = utils.find_starting_line_and_indent(
-                        doc.metadata["filename"], doc.page_content
-                    )
-
-                    syntax = Syntax(
-                        indentation + doc.page_content,
-                        language.value,
-                        theme="monokai",
-                        line_numbers=True,
-                        start_line=start_line,
-                        indent_guides=True,
-                    )
-                    print(
-                        doc.metadata["filename"] + " -> " + doc.metadata["method_name"]
-                    )
-                    console.print(syntax)
-                    print()
-
-                choice = input("[?] (C)ontinue search or (E)xit [C]:").strip().lower()
-
-            elif args.action == "chat":
-                question = input("💬 Ask anything about the codebase: ")
-                spinner = yaspin(text="🤖 Processing...", color="green")
-                spinner.start()
-                result = qa(question)
-                spinner.stop()
-                markdown = Markdown(result["answer"])
-                console.print(markdown)
-
-                choice = (
-                    input("[?] (C)ontinue chat, (R)eset chat or (E)xit [C]:")
-                    .strip()
-                    .lower()
+        if args.action == "extension":
+            vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
+            search_pattern = input()
+            similarity_result = vector_store.similarity_search(search_pattern)
+            output = list()
+            for doc in similarity_result:
+                language = utils.get_programming_language(
+                    utils.get_file_extension(doc.metadata["filename"])
                 )
 
-                if choice == "r":
-                    memory.clear()
-                    print("Chat history cleared.")
-            else:
-                print("Invalid action.")
-                exit()
+                start_line, indentation = utils.find_starting_line_and_indent(
+                    doc.metadata["filename"], doc.page_content
+                )
 
-            if choice == "" or choice == "c":
-                continue
-            elif choice == "e":
-                break
-            else:
-                print("Invalid choice. Please enter 'C', 'E', or 'R'.")
+                syntax = Syntax(
+                    indentation + doc.page_content,
+                    language.value,
+                    theme="monokai",
+                    line_numbers=True,
+                    start_line=start_line,
+                    indent_guides=True,
+                )
+                # Create a JSON object for the snippet  
+                snippet = {  
+                    'filename': doc.metadata["filename"],  
+                    'method_name': doc.metadata["method_name"],  
+                    'language': language.value,  
+                    'content': indentation + doc.page_content,  
+                    'start_line': start_line  
+                }  
+                # Output the JSON object  
+                print(json.dumps(snippet))  
+        
+        elif args.action == "generate":
+            vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
+            result = qa(args.query)
+            print(result["answer"])
+
+        elif args.action == "app":
+            print("Starting CodeQAI streamlit app...")
+            run_streamlit()
+        else:
+            spinner = yaspin(text="💾 Loading vector store...", color="green")
+            spinner.start()
+            vector_store, memory, qa = bootstrap(config, repo_name, embeddings_model)
+            spinner.stop()
+
+            if args.action == "sync":
+                spinner = yaspin(text="💾 Syncing vector store...", color="green")
+                spinner.start()
+                files = repo.load_files()
+                vector_store.sync_documents(files)
+                save_vector_cache(vector_store.vector_cache, f"{repo_name}.json")
+                spinner.stop()
+                print("✅ Vector store synced with current git checkout.")
+
+            console = Console()
+            while True:
+                choice = None
+                if args.action == "sync":
+                    break
+                if args.action == "search":
+                    search_pattern = input("🔎 Enter a search pattern: ")
+                    spinner = yaspin(text="🤖 Processing...", color="green")
+                    spinner.start()
+                    similarity_result = vector_store.similarity_search(search_pattern)
+                    spinner.stop()
+                    for doc in similarity_result:
+                        language = utils.get_programming_language(
+                            utils.get_file_extension(doc.metadata["filename"])
+                        )
+
+                        start_line, indentation = utils.find_starting_line_and_indent(
+                            doc.metadata["filename"], doc.page_content
+                        )
+
+                        syntax = Syntax(
+                            indentation + doc.page_content,
+                            language.value,
+                            theme="monokai",
+                            line_numbers=True,
+                            start_line=start_line,
+                            indent_guides=True,
+                        )
+                        print(
+                            doc.metadata["filename"] + " -> " + doc.metadata["method_name"]
+                        )
+                        console.print(syntax)
+                        print()
+
+                    choice = input("[?] (C)ontinue search or (E)xit [C]:").strip().lower()
+
+                elif args.action == "chat":
+                    question = input("💬 Ask anything about the codebase: ")
+                    spinner = yaspin(text="🤖 Processing...", color="green")
+                    spinner.start()
+                    result = qa(question)
+                    spinner.stop()
+                    markdown = Markdown(result["answer"])
+                    console.print(markdown)
+
+                    choice = (
+                        input("[?] (C)ontinue chat, (R)eset chat or (E)xit [C]:")
+                        .strip()
+                        .lower()
+                    )
+
+                    if choice == "r":
+                        memory.clear()
+                        print("Chat history cleared.")
+                else:
+                    print("Invalid action.")
+                    exit()
+
+                if choice == "" or choice == "c":
+                    continue
+                elif choice == "e":
+                    break
+                else:
+                    print("Invalid choice. Please enter 'C', 'E', or 'R'.")
 
 
 @click.group()
